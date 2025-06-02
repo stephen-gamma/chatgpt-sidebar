@@ -86,21 +86,19 @@
     }
 
     .message {
-      display: flex;
-      gap: 12px;
+      padding: 16px;
+      border-radius: 8px;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .message.user {
       background: #444654;
-      padding: 16px;
-      border-radius: 8px;
       margin-left: 20px;
     }
 
     .message.assistant {
       background: #343541;
-      padding: 16px;
-      border-radius: 8px;
       margin-right: 20px;
     }
 
@@ -218,6 +216,7 @@
 
     .message p {
       margin: 8px 0;
+      line-height: 1.5;
     }
 
     .message strong {

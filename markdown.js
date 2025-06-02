@@ -35,10 +35,9 @@ class MarkdownParser {
     // Links [text](url)
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
     
-    // Line breaks (two spaces + newline or double newline)
-    html = html.replace(/  \n/g, '<br>');
-    html = html.replace(/\n\n/g, '</p><p>');
-    html = html.replace(/\n/g, '<br>');
+    // Line breaks (double newline creates new paragraph, single newline creates break)
+    html = html.replace(/\n\n+/g, '</p><p>');
+    html = html.replace(/\n/g, ' ');
     
     // Wrap in paragraph if not already wrapped
     if (!html.startsWith('<')) {
