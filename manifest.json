@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Page Chat Assistant",
+  "version": "1.0",
+  "description": "Chat with AI about the current webpage content",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://api.openai.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Page Chat Assistant"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+I",
+        "mac": "Command+I"
+      },
+      "description": "Open Page Chat Assistant"
+    }
+  }
+}
