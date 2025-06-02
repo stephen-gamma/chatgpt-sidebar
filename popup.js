@@ -4,6 +4,7 @@ class PageChatAssistant {
     this.messages = [];
     this.currentPageData = null;
     this.zoomLevel = 'zoom-normal';
+    this.currentUrl = null;
 
     this.initializeElements();
     this.loadStoredData();
@@ -21,35 +22,60 @@ class PageChatAssistant {
     this.zoomInBtn = document.getElementById("zoomIn");
     this.zoomOutBtn = document.getElementById("zoomOut");
     this.toggleModeBtn = document.getElementById("toggleMode");
+    this.clearBtn = document.getElementById("clearConvo");
   }
 
   async loadStoredData() {
     try {
-      const result = await chrome.storage.sync.get(["apiKey", "messages", "zoomLevel"]);
+      const result = await chrome.storage.sync.get(["apiKey", "zoomLevel"]);
       if (result.apiKey) {
         this.apiKey = result.apiKey;
         this.apiKeyInput.value = result.apiKey;
-      }
-      if (result.messages) {
-        this.messages = result.messages;
-        this.renderMessages();
       }
       if (result.zoomLevel) {
         this.zoomLevel = result.zoomLevel;
         this.applyZoom();
       }
+      // Messages will be loaded after we get the URL
     } catch (error) {
       console.error("Error loading stored data:", error);
     }
   }
 
+  async loadMessagesForUrl(url) {
+    try {
+      const urlKey = `messages_${this.sanitizeUrl(url)}`;
+      const result = await chrome.storage.sync.get([urlKey]);
+      if (result[urlKey]) {
+        this.messages = result[urlKey];
+        this.renderMessages();
+      } else {
+        this.messages = [];
+        this.renderMessages();
+      }
+    } catch (error) {
+      console.error("Error loading messages for URL:", error);
+    }
+  }
+
+  sanitizeUrl(url) {
+    // Remove protocol and sanitize for storage key
+    return url.replace(/https?:\/\//, '').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 100);
+  }
+
   async saveData() {
     try {
-      await chrome.storage.sync.set({
+      const data = {
         apiKey: this.apiKey,
-        messages: this.messages,
         zoomLevel: this.zoomLevel,
-      });
+      };
+      
+      if (this.currentUrl) {
+        const urlKey = `messages_${this.sanitizeUrl(this.currentUrl)}`;
+        data[urlKey] = this.messages;
+      }
+      
+      await chrome.storage.sync.set(data);
     } catch (error) {
       console.error("Error saving data:", error);
     }
@@ -82,6 +108,10 @@ class PageChatAssistant {
 
     this.toggleModeBtn.addEventListener("click", () => {
       this.toggleSidebarMode();
+    });
+
+    this.clearBtn.addEventListener("click", () => {
+      this.clearConversation();
     });
   }
 
@@ -126,6 +156,8 @@ class PageChatAssistant {
 
               if (response) {
                 this.currentPageData = response;
+                this.currentUrl = response.url;
+                this.loadMessagesForUrl(response.url);
                 this.setStatus(`Page loaded: ${response.title}`);
                 resolve(response);
               } else {
@@ -351,20 +383,23 @@ Please answer the user's question based on this webpage content. Be helpful and 
         await chrome.storage.local.set({ sidebarPageData: this.currentPageData });
       }
       
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      // Open sidebar by creating a new tab with sidebar.html
-      const sidebarUrl = chrome.runtime.getURL('sidebar.html');
-      await chrome.tabs.create({ 
-        url: sidebarUrl,
-        index: tab.index + 1
-      });
+      // Open the side panel
+      await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
       
       // Close the popup
       window.close();
     } catch (error) {
       console.error('Error opening sidebar:', error);
       this.setStatus('Error opening sidebar mode');
+    }
+  }
+
+  async clearConversation() {
+    if (confirm('Clear conversation for this page?')) {
+      this.messages = [];
+      this.renderMessages();
+      this.saveData();
+      this.setStatus('Conversation cleared');
     }
   }
 }

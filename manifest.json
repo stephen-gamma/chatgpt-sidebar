@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://api.openai.com/*"
@@ -14,6 +15,9 @@
   "action": {
     "default_popup": "popup.html",
     "default_title": "Page Chat Assistant"
+  },
+  "side_panel": {
+    "default_path": "sidebar.html"
   },
   "content_scripts": [
     {

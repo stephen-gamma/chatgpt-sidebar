@@ -4,7 +4,7 @@ class SidebarChatAssistant {
     this.messages = [];
     this.currentPageData = null;
     this.zoomLevel = 'zoom-normal';
-    this.originalTabId = null;
+    this.currentUrl = null;
 
     this.initializeElements();
     this.loadStoredData();
@@ -21,41 +21,58 @@ class SidebarChatAssistant {
     this.status = document.getElementById("status");
     this.zoomInBtn = document.getElementById("zoomIn");
     this.zoomOutBtn = document.getElementById("zoomOut");
-    this.closeSidebarBtn = document.getElementById("closeSidebar");
+    this.clearBtn = document.getElementById("clearConvo");
   }
 
   async loadStoredData() {
     try {
-      const result = await chrome.storage.sync.get(["apiKey", "messages", "zoomLevel", "currentPageData"]);
+      const result = await chrome.storage.sync.get(["apiKey", "zoomLevel"]);
       if (result.apiKey) {
         this.apiKey = result.apiKey;
         this.apiKeyInput.value = result.apiKey;
       }
-      if (result.messages) {
-        this.messages = result.messages;
-        this.renderMessages();
-      }
       if (result.zoomLevel) {
         this.zoomLevel = result.zoomLevel;
         this.applyZoom();
-      }
-      if (result.currentPageData) {
-        this.currentPageData = result.currentPageData;
-        this.setStatus(`Page loaded: ${result.currentPageData.title}`);
       }
     } catch (error) {
       console.error("Error loading stored data:", error);
     }
   }
 
+  async loadMessagesForUrl(url) {
+    try {
+      const urlKey = `messages_${this.sanitizeUrl(url)}`;
+      const result = await chrome.storage.sync.get([urlKey]);
+      if (result[urlKey]) {
+        this.messages = result[urlKey];
+        this.renderMessages();
+      } else {
+        this.messages = [];
+        this.renderMessages();
+      }
+    } catch (error) {
+      console.error("Error loading messages for URL:", error);
+    }
+  }
+
+  sanitizeUrl(url) {
+    return url.replace(/https?:\/\//, '').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 100);
+  }
+
   async saveData() {
     try {
-      await chrome.storage.sync.set({
+      const data = {
         apiKey: this.apiKey,
-        messages: this.messages,
         zoomLevel: this.zoomLevel,
-        currentPageData: this.currentPageData,
-      });
+      };
+      
+      if (this.currentUrl) {
+        const urlKey = `messages_${this.sanitizeUrl(this.currentUrl)}`;
+        data[urlKey] = this.messages;
+      }
+      
+      await chrome.storage.sync.set(data);
     } catch (error) {
       console.error("Error saving data:", error);
     }
@@ -86,8 +103,8 @@ class SidebarChatAssistant {
       this.zoomOut();
     });
 
-    this.closeSidebarBtn.addEventListener("click", () => {
-      window.close();
+    this.clearBtn.addEventListener("click", () => {
+      this.clearConversation();
     });
   }
 
@@ -97,6 +114,8 @@ class SidebarChatAssistant {
       const result = await chrome.storage.local.get(["sidebarPageData"]);
       if (result.sidebarPageData) {
         this.currentPageData = result.sidebarPageData;
+        this.currentUrl = result.sidebarPageData.url;
+        this.loadMessagesForUrl(result.sidebarPageData.url);
         this.setStatus(`Page loaded: ${result.sidebarPageData.title}`);
         await chrome.storage.local.remove(["sidebarPageData"]);
       } else {
@@ -167,7 +186,7 @@ Please answer the user's question based on this webpage content. Be helpful and 
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4-mini",
+        model: "gpt-4.1-mini",
         messages: [
           { role: "system", content: systemMessage },
           { role: "user", content: userMessage },
@@ -306,6 +325,15 @@ Please answer the user's question based on this webpage content. Be helpful and 
     const body = document.body;
     body.className = body.className.replace(/zoom-\w+/g, '');
     body.classList.add(this.zoomLevel);
+  }
+
+  async clearConversation() {
+    if (confirm('Clear conversation for this page?')) {
+      this.messages = [];
+      this.renderMessages();
+      this.saveData();
+      this.setStatus('Conversation cleared');
+    }
   }
 }
 
